@@ -62,7 +62,7 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 6. **Ejecutar la interfaz gráfica**
 
    ```bash
-   python python/main_gui.py
+   python GUI/main_gui.py
    ```
 
    ¡La GUI debería abrirse!
