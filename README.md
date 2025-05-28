@@ -94,9 +94,12 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 
 ## 🖥️ Interfaz gráfica (GUI)
 
-La GUI tiene los siguientes botones:
+La interfaz gráfica cuenta con los siguientes botones y funcionalidades:
 
-- **Conectar**: Establece la conexión con el Arduino (ajustar el puerto en `serial_handler.py` si es necesario).
-- **Iniciar**: Envía un handshake al Arduino para comenzar a recibir datos.
-- **Detener**: Detiene la adquisición de datos.
-- **Guardar**: Guarda los datos en un archivo `.csv`.
+- **Seleccionar Puerto**: Desplegable para elegir el puerto serial donde está conectado el Arduino.
+- **Conectar**: Establece la conexión con el Arduino en el puerto seleccionado.  
+  - Al conectar correctamente, el botón cambia a verde para indicar estado activo.
+- **Desconectar**: Cierra la conexión serial con el Arduino y detiene la adquisición si está en curso.
+- **Iniciar**: Comienza la adquisición de datos y activa la recepción de señales en tiempo real.
+- **Detener**: Pausa la adquisición de datos sin cerrar la conexión serial.
+- **Guardar**: Guarda los datos adquiridos hasta el momento en un archivo `.csv` en la ruta configurada.
