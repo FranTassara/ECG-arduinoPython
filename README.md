@@ -30,7 +30,7 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 
 2. **Descargar este repositorio**  
    Cloná o descargá este repositorio desde GitHub:  
-   [🔗 Repositorio del proyecto](https://github.com/usuario/repo-ecg)
+   [🔗 Repositorio del proyecto](https://github.com/FranTassara/ECG-arduinoPython)
 
 3. **Crear entorno virtual**
 
