@@ -9,12 +9,7 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-import sys
-import struct
-import serial
-import serial.tools.list_ports
-import csv
-from pyqtgraph import PlotWidget
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -36,6 +31,16 @@ class Ui_MainWindow(object):
         self.pushButton_startRecording = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_startRecording.setObjectName("pushButton_startRecording")
         self.verticalLayout.addWidget(self.pushButton_startRecording)
+        self.pushButton_calculateHR = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_calculateHR.setObjectName("pushButton_calculateHR")
+        self.verticalLayout.addWidget(self.pushButton_calculateHR)
+        self.label_heartRate = QtWidgets.QLabel(self.centralwidget)
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.label_heartRate.setFont(font)
+        self.label_heartRate.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_heartRate.setObjectName("label_heartRate")
+        self.verticalLayout.addWidget(self.label_heartRate)
         self.pushButton_stop_save_recording = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_stop_save_recording.setObjectName("pushButton_stop_save_recording")
         self.verticalLayout.addWidget(self.pushButton_stop_save_recording)
@@ -47,8 +52,8 @@ class Ui_MainWindow(object):
         self.verticalLayout.setStretch(1, 1)
         self.verticalLayout.setStretch(2, 1)
         self.verticalLayout.setStretch(3, 1)
-        self.verticalLayout.setStretch(4, 1)
-        self.verticalLayout.setStretch(5, 8)
+        self.verticalLayout.setStretch(6, 1)
+        self.verticalLayout.setStretch(7, 8)
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -60,10 +65,20 @@ class Ui_MainWindow(object):
         self.pushButton_connect.setText(_translate("MainWindow", "Conectar"))
         self.pushButton_disconnect.setText(_translate("MainWindow", "Desconectar"))
         self.pushButton_startRecording.setText(_translate("MainWindow", "Comenzar grabación"))
+        self.pushButton_calculateHR.setText(_translate("MainWindow", "Calcular Frecuencia Cardíaca"))
+        self.label_heartRate.setText(_translate("MainWindow", "FC: -- BPM"))
         self.pushButton_stop_save_recording.setText(_translate("MainWindow", "Detener grabación y guardar"))
 
+import sys
+import struct
+import serial
+import serial.tools.list_ports
+import csv
+from pyqtgraph import PlotWidget
 
-SAVE_PATH = "C:/Users/Tassara/Documents/Facultad/PSIB - LabECG/ecg_data.csv"  # <-- Acá cambiás el path y el nombre del archivo
+import numpy as np
+from scipy.signal import butter, filtfilt, find_peaks
+
 class ECGRecorder(QtCore.QObject):
     def __init__(self, ui):
         super().__init__()
@@ -75,7 +90,7 @@ class ECGRecorder(QtCore.QObject):
         self.plot_data = []
         self.curve = self.ui.widget.plot(pen='g')
         self.ui.widget.setYRange(0, 5)
-        #self.ui.widget.setYRange(0, 1024, padding=0)
+        self.sampling_rate = 100  # 100 Hz (100 muestras cada 10ms según tu timer)
 
     def list_ports(self):
         self.ui.comboBox_ports.clear()
@@ -89,7 +104,7 @@ class ECGRecorder(QtCore.QObject):
             return
         try:
             self.serial = serial.Serial(port_name, baudrate=9600, timeout=1)
-            print("Conectado excitosamente")
+            print("Conectado exitosamente")
             self.ui.pushButton_connect.setStyleSheet("background-color: green;")
             self.ui.pushButton_connect.setEnabled(False)
         except serial.SerialException as e:
@@ -112,12 +127,100 @@ class ECGRecorder(QtCore.QObject):
     def stop_and_save(self):
         self.timer.stop()
         if self.data:
-            with open(SAVE_PATH, "w", newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(["Sample"])
-                for sample in self.data:
-                    writer.writerow([sample])
-        print(f"Datos guardados en {SAVE_PATH}")
+            # Abrir diálogo para seleccionar ubicación y nombre del archivo
+            options = QtWidgets.QFileDialog.Options()
+            file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                None,
+                "Guardar datos ECG",
+                "ecg_data.csv",
+                "CSV Files (*.csv);;All Files (*)",
+                options=options
+            )
+            
+            if file_path:  # Si el usuario seleccionó un archivo
+                with open(file_path, "w", newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Sample"])
+                    for sample in self.data:
+                        writer.writerow([sample])
+                print(f"Datos guardados en {file_path}")
+            else:
+                print("Guardado cancelado por el usuario")
+        else:
+            print("No hay datos para guardar")
+
+    def butter_bandpass(self, lowcut, highcut, fs, order=4):
+        """Diseña un filtro pasabanda Butterworth"""
+        nyquist = 0.5 * fs
+        low = lowcut / nyquist
+        high = highcut / nyquist
+        b, a = butter(order, [low, high], btype='band')
+        return b, a
+
+    def bandpass_filter(self, data, lowcut=0.5, highcut=40.0, fs=100, order=4):
+        """Aplica filtro pasabanda a la señal"""
+        b, a = self.butter_bandpass(lowcut, highcut, fs, order=order)
+        y = filtfilt(b, a, data)
+        return y
+
+    def calculate_heart_rate(self):
+        """Calcula la frecuencia cardíaca usando detección de picos"""
+        if len(self.data) < 200:  # Mínimo 2 segundos de datos
+            self.ui.label_heartRate.setText("FC: Insuficientes datos")
+            print("Se necesitan al menos 2 segundos de grabación")
+            return
+
+        try:
+            # Tomar últimos 10 segundos de datos (o todos si hay menos)
+            window_samples = min(10 * self.sampling_rate, len(self.data))
+            signal_window = np.array(self.data[-window_samples:])
+
+            # Aplicar filtro pasabanda (elimina ruido y deriva de línea base)
+            filtered_signal = self.bandpass_filter(
+                signal_window, 
+                lowcut=0.5, 
+                highcut=40.0, 
+                fs=self.sampling_rate
+            )
+
+            # Normalizar la señal
+            filtered_signal = (filtered_signal - np.mean(filtered_signal)) / np.std(filtered_signal)
+
+            # Detectar picos (complejos QRS)
+            # height: altura mínima del pico (ajustar según tu señal)
+            # distance: distancia mínima entre picos (evita detectar el mismo QRS múltiples veces)
+            # 60 samples = 0.6 segundos mínimo entre latidos (max 100 BPM)
+            peaks, properties = find_peaks(
+                filtered_signal,
+                height=0.5,  # Ajustar según la amplitud de tu señal
+                distance=int(0.4 * self.sampling_rate),  # 0.4 seg = mínimo 150 BPM
+                prominence=0.3  # Prominencia mínima del pico
+            )
+
+            if len(peaks) < 2:
+                self.ui.label_heartRate.setText("FC: No se detectaron latidos")
+                print("No se detectaron suficientes picos R")
+                return
+
+            # Calcular intervalos R-R (en muestras)
+            rr_intervals = np.diff(peaks)
+
+            # Convertir a intervalos de tiempo (segundos)
+            rr_intervals_sec = rr_intervals / self.sampling_rate
+
+            # Calcular frecuencia cardíaca promedio
+            mean_rr = np.mean(rr_intervals_sec)
+            heart_rate = 60.0 / mean_rr  # Convertir a BPM
+
+            # Actualizar la interfaz
+            self.ui.label_heartRate.setText(f"FC: {heart_rate:.1f} BPM")
+            print(f"Frecuencia cardíaca calculada: {heart_rate:.1f} BPM")
+            print(f"Picos detectados: {len(peaks)}")
+            print(f"Intervalo R-R promedio: {mean_rr*1000:.1f} ms")
+
+        except Exception as e:
+            self.ui.label_heartRate.setText("FC: Error en cálculo")
+            print(f"Error calculando frecuencia cardíaca: {e}")
 
     def read_serial(self):
         if not self.serial:
@@ -145,6 +248,7 @@ class ECGRecorder(QtCore.QObject):
         except Exception as e:
             print(f"Error leyendo datos: {e}")
 
+
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
@@ -158,6 +262,7 @@ if __name__ == "__main__":
     ui.pushButton_disconnect.clicked.connect(recorder.disconnect_serial)
     ui.pushButton_startRecording.clicked.connect(recorder.start_recording)
     ui.pushButton_stop_save_recording.clicked.connect(recorder.stop_and_save)
+    ui.pushButton_calculateHR.clicked.connect(recorder.calculate_heart_rate)
 
     MainWindow.show()
     sys.exit(app.exec_())
