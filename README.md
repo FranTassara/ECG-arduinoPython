@@ -4,7 +4,7 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 
 ---
 
-## 📦 Requisitos
+## Requisitos
 
 ### Hardware
 - Arduino UNO, MEGA o ESP32
@@ -23,14 +23,14 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 - `pyqtgraph`
 - `numpy`
 
-## 💻 Configuración de la computadora
+## Configuración de la computadora
 
 1. **Chequear que Python 3.8 o superior esté instalado**  
    (Verificá con `python --version` o `python3 --version` en la terminal)
 
 2. **Descargar este repositorio**  
    Cloná o descargá este repositorio desde GitHub:  
-   [🔗 Repositorio del proyecto](https://github.com/FranTassara/ECG-arduinoPython)
+   [Repositorio del proyecto](https://github.com/FranTassara/ECG-arduinoPython)
 
 3. **Crear entorno virtual**
 
@@ -69,7 +69,7 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 
 ---
 
-## ⚙️ Configuración del Arduino y el AD8232
+## Configuración del Arduino y el AD8232
 1. Abrí el archivo `arduino/ecg_stream_ad8232.ino` con el Arduino IDE.
 2. Seleccioná la placa (Arduino UNO, MEGA o ESP32) y el puerto correcto.
 3. Cargá el código a la placa.
@@ -81,7 +81,7 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 
 ---
 
-## ⚡ Colocación de electrodos en el cuerpo
+## Colocación de electrodos en el cuerpo
 
 1. Limpiá con alcohol la piel donde se colocarán los electrodos.
 2. Colocá los electrodos siguiendo el siguiente esquema:
@@ -92,7 +92,7 @@ Este proyecto permite adquirir y visualizar señales de ECG (electrocardiograma)
 
 ---
 
-## 🖥️ Interfaz gráfica (GUI)
+## Interfaz gráfica (GUI)
 
 La interfaz gráfica cuenta con los siguientes botones y funcionalidades:
 
